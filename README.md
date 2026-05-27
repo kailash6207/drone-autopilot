@@ -1,32 +1,5 @@
-# Autonomous Drone Navigation Simulator
-
-## Features
-- Autonomous drone movement
-- Obstacle avoidance
-- Simple room mapping
-- Random navigation
-
-## Run
-
-```bash
-python main.py
-
----
-
-# How To Run In VSCode
-
-## Step 1
-Install Python.
-
----
-
-## Step 2
-Open project folder in VSCode.
-
----
-
-## Step 3
-Open terminal:
-
-```bash
-pip install -r requirements.txt
+Drone Autopilot: Autonomous Navigation SimulatorAn interactive 2D drone simulation built with Pygame that demonstrates advanced autonomous flight mechanics, vector-based physics, and real-time pathfinding. The system features an intelligent control state machine designed to navigate tight floorplans, manage onboard power reserves, and handle automatic mission docking sequences.🌟 Key FeaturesAdvanced Autonomous Navigation: Powered by a customized A* search algorithm featuring an increased computational budget ($50,000\text{ iterations}$) to navigate deep room partitions and complex architectural dead-ends.Tapered Corridor Raycasting: Dynamic path-smoothing logic that maintains a wide safety envelope in open areas but smoothly narrows down to thread the needle through tight doors.Inertial Momentum Stabilization: Physics-engine tracking that identifies kinetic overshoots at targets and applies immediate counter-thrust damping to ensure structural stability.Automatic Timed Docking: An autonomous mission lifecycle where the drone locks onto a target, completes a 2-second telemetry hover check upon arrival, and instantly routes itself back to the home base station to charge.Proximity Sensor Array: A real-time, 360-degree sector-based radar system that feeds obstacle collision alerts straight into a persistent sidebar diagnostic HUD.🛠️ Architecture BlueprintThe simulation environment splits responsibilities across specialized modular blocks:ComponentResponsibilitymain.pyCore engine loop, system state updates, input management, and panel UI rendering.drone.pyVector physics engine, velocity components acceleration, and friction braking.pathfinding.pyCoordinate grid validation, center-line layout pricing, and path smoothing.image_processing.pyFloorplan image binarization, extracting pixel arrays into walkable data arrays.config.pyUniversal constants, window dimensions, grid configurations, and theme color vectors.🚀 Installation & Setup GuideFollow these steps to deploy and launch the command console on your local machine:PrerequisitesEnsure you have the latest stable release of Python installed on your system.Step 1: Initialize WorkspaceOpen your preferred terminal configuration, navigate to the project root directory, and open it inside VSCode:Bashcd drone-autopilot
+code .
+Step 2: Install System DependenciesExecute the pip environment installation command inside your terminal window to download the required Pygame framework binaries:Bashpip install -r requirements.txt
+Step 3: Launch the ConsoleBoot up the main game engine loop to deploy the drone station:Bashpython main.py
+🎮 Command Console Controls[Left-Click Map] Spawn a grid-locked obstacle structure in real-time to challenge the drone's vector routing.[Right-Click Map] Set an objective destination point. If docked, this triggers a charging pad breakout (requires a safe $\ge 35\%$ battery cushion).[P Key] Toggle the autonomous surveillance loop through hardcoded house waypoints.[UI Sidebar Buttons] Manually toggle Core Turbo Boost or High-Res Radar Sensors to instantly alter engine flight characteristics.
