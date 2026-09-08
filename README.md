@@ -12,13 +12,13 @@
 **A real-time autonomous robotics simulator built with Pygame featuring computer-vision floorplan ingestion, center-line biased A\* pathfinding, adaptive corridor raycasting, 2D vector flight physics, 360° proximity radar, and autonomous fail-safe docking.**
 
 [Key Features](#-key-features) •
-[System Architecture Flowchart](#-system-architecture--pipeline-flowchart) •
-[Mission Lifecycle State Machine](#-mission-lifecycle-state-machine) •
-[Pathfinding & Smoothing Workflows](#-algorithmic-deep-dive--workflows) •
-[Physics & Aerodynamics Loop](#-flight-physics--kinetics-engine-workflow) •
-[Dynamic Obstacle Avoidance Workflow](#-dynamic-in-flight-obstacle-injection-workflow) •
-[Sensory Radar Workflow](#-360-octant-radar-sensor-array-workflow) •
-[Controls & Sandbox](#-flight-controls--sandbox-guide) •
+[System Architecture](#-system-architecture--pipeline-flowchart) •
+[Mission Lifecycle](#-mission-lifecycle-state-machine) •
+[Pathfinding & Smoothing](#-algorithmic-deep-dive--workflows) •
+[Flight Physics](#-flight-physics--kinetics-engine-workflow) •
+[Obstacle Avoidance](#-dynamic-in-flight-obstacle-injection-workflow) •
+[Radar Array](#-360-octant-radar-sensor-array-workflow) •
+[Flight Controls](#-flight-controls--sandbox-guide) •
 [Installation](#-installation--getting-started)
 
 </div>
@@ -41,146 +41,46 @@ Instead of relying on idealized point-mass movement or trivial grid paths, the s
 
 ## 🌟 Key Features
 
-### 🧭 1. Center-Line Biased A* Search Engine
-- **50,000 Iteration Computation Headroom:** Capable of navigating deep multi-room partition deadlocks, complex residential floorplans, and narrow doorways without timeouts.
-- **Dynamic Inverse-Distance Wall Proximity Penalty:** Evaluates an 8-pixel clearance field around every grid candidate cell ($\sum \frac{480}{\text{dist}}$), pulling generated trajectories toward corridor center-lines.
-- **Self-Healing Node Recovery:** If an objective or starting position is clicked inside wall thickness, the pathfinder automatically relaxes the target to the nearest open, valid grid cell within a 6-pixel radius.
-
-### 📐 2. Adaptive Corridor Raycaster Path Smoother
-- **Line-of-Sight Bresenham Raycasting:** Greedy lookahead pruning eliminates orthogonal grid steps into optimized straight-line flight vectors.
-- **Tapered Corridor Clearance Corridors:** Dynamically scales obstacle clearance bounding envelopes ($1\text{ px}$ at docking/target arrival, $3\text{ px}$ in transition, $5\text{ px}$ during cruising) to preserve clearance during high-speed transit while enabling surgical navigation near tight targets.
-
-### 🛸 3. Inertial Vector Aerodynamics & Physics
-- **Rotational Heading Interpolation:** Smooth angular transitions ($\Delta \theta \times 0.15$) pointing the drone's nose cone directly along the velocity vector.
-- **Kinetic Drag & Deceleration Modeling:** High-traction friction factor (`0.80`) provides snappy cornering and eliminates sluggish drift.
-- **Predictive Curvature Deceleration:** Analyzes future waypoints (6 steps ahead); if path angular delta exceeds $0.4\text{ rad}$, maximum speed is throttled by $75\%$ to execute sharp, controlled turns.
-
-### 📡 4. 360° Proximity Radar Sensor HUD
-- **24-Ray Radial Scan Array:** Emits sensor rays in $15^\circ$ angular increments across all $360^\circ$.
-- **8-Sector Octant Collision Arcs:** Renders radial status arcs around the chassis (Green = Clear, Red = Proximity Alert).
-- **Dual-Mode Scan Range:** Instant toggle between Standard ($120\text{ px}$) and High-Res ($220\text{ px}$) sensor coverage.
-
-### 🔋 5. Power Management & Autonomous Docking Lifecycle
-- **Dynamic Battery Discharge:** Power consumption scales dynamically with movement and hardware overdrives ($0.015\%/\text{frame}$ normal, $0.040\%/\text{frame}$ turbo).
-- **Automated 2-Second Hover Check:** Holds position and validates telemetry for 2,000 ms upon reaching target before initiating return-to-home.
-- **Low-Power RTH Fail-Safe:** Automatically aborts active missions and plots an emergency path to dock when reserves hit $\le 20\%$.
-- **Fast Inductive Charging Pad:** Rapid recharge ($+0.3\%/\text{frame}$) upon dock alignment ($< 6\text{ px}$), enforcing a strict $\ge 35\%$ safety cushion before permitting subsequent departures.
-
-### 🧱 6. Real-Time Interactive Sandbox
-- **In-Flight Dynamic Obstacle Injection:** Left-click anywhere on the map to spawn grid-locked obstacles; in-flight paths recalculate instantaneously.
-- **Base Station Clearance Guard:** Intelligent validation prevents accidental obstacle placement over the charging pad.
-- **Geofence Boundary Monitoring:** Detects perimeter threshold breaches ($25\text{ px}$ margin) and triggers pulsing HUD alerts.
+- **🧭 Center-Line Biased A\*:** 50,000 loop iteration headroom with dynamic inverse-distance wall repulsion ($\sum \frac{480}{\text{dist}}$) pulling trajectories to corridor center-lines.
+- **📐 Adaptive Corridor Raycasting:** Greedy Bresenham line-of-sight smoother with distance-scaled clearance envelopes ($1\text{px}$, $3\text{px}$, $5\text{px}$) for natural, corner-safe flight paths.
+- **🛸 Kinetic Vector Aerodynamics:** Rotational interpolation ($\Delta\theta \times 0.15$), aerodynamic drag damping (`0.80`), and curvature lookahead braking (75% throttle reduction when $|\Delta\theta| > 0.4\text{ rad}$).
+- **📡 360° Octant Proximity Radar:** 24-ray radial scan with 8-sector status arcs around the chassis and toggleable range ($120\text{ px}$ Standard vs. $220\text{ px}$ High-Res).
+- **🔋 Autonomous Mission Lifecycle:** Automated 2-second target hover validation, low-power emergency RTH ($\le 20\%$), inductive pad fast-recharge ($+0.3\%/\text{frame}$), and departure safety check ($\ge 35\%$).
+- **🧱 Live Interactive Sandbox:** Dynamic in-flight obstacle spawning with instantaneous path recalculation, protected home base station, and geofence boundary warnings.
 
 ---
 
 ## 🏗️ System Architecture & Pipeline Flowchart
 
-The following flowchart details the end-to-end data pipeline from raw floorplan ingestion to real-time rendering:
+A neat, streamlined overview of the end-to-end simulation pipeline:
 
 ```mermaid
-flowchart TD
-    subgraph S1 ["🖼️ Phase 1: Computer Vision Ingestion"]
-        A["Input: house.png Floorplan"] --> B["Grayscale Conversion ('L')"]
-        B --> C["Scale to Window Canvas (1000 x 700 px)"]
-        C --> D["Morphological Inflation: ImageFilter.MinFilter(3) Pass 1"]
-        D --> E["Morphological Inflation: ImageFilter.MinFilter(3) Pass 2"]
-        E --> F["Thresholding: Matrix Pixels < 50 => Obstacle (1), else Walkable (0)"]
-        F --> G["binary_map: 2D Occupancy Matrix"]
-    end
+flowchart LR
+    A["🖼️ Vision Pipeline<br/>(Dilation & Binarization)"] --> B["🧭 A* Planner<br/>(Wall Repulsion Field)"]
+    B --> C["📐 Raycaster Smoother<br/>(LOS Corridor Pruning)"]
+    C --> D["🛸 Flight Physics<br/>(Inertia & Drag Damping)"]
+    D --> E["📡 360° Radar & HUD<br/>(Telemetry & Collision)"]
 
-    subgraph S2 ["🎮 Phase 2: User Input & Mission Dispatcher"]
-        H1["Left-Click (Initial)"] --> I1["Spawn Base Station Pad & Drone"]
-        H2["Left-Click (Active)"] --> I2["Inject 36x36 px Obstacle Block"]
-        H3["Right-Click (Active)"] --> I3["Set New Objective Coordinates"]
-        H4["Press 'P' Key"] --> I4["Engage 7-Waypoint Patrol Queue"]
-        H5["Sidebar UI Buttons"] --> I5["Toggle Turbo Boost / High-Res Radar"]
-    end
-
-    subgraph S3 ["🧭 Phase 3: Path Planning & Smoothing"]
-        G --> J["A* Planner (50,000 Iteration Cap)"]
-        I3 & I4 --> J
-        I2 -.->|"Triggers Live Re-Plan"| J
-        J --> K["Compute Wall Proximity Repulsion Field (8px Radius)"]
-        K --> L["Raw Discrete Grid Waypoints"]
-        L --> M["Adaptive Tapered Corridor Raycaster (Bresenham LOS)"]
-        M --> N["Optimized Smooth Vector Trajectory"]
-    end
-
-    subgraph S4 ["🛸 Phase 4: Flight Kinetics & Telemetry"]
-        N --> O["Trajectory Tracker & Curvature Lookahead"]
-        O --> P["Vector Acceleration: dx, dy => Heading Angle"]
-        P --> Q["Aerodynamic Drag Damping (friction = 0.80)"]
-        Q --> R["Velocity Clamping & Position Integration"]
-        R --> S["Dynamic Battery Discharge Simulation"]
-    end
-
-    subgraph S5 ["📡 Phase 5: Sensors, Safety & HUD"]
-        R --> T["360° 24-Ray Octant Radar Array"]
-        T --> U["8-Sector Collision Evaluation"]
-        R --> V["Geofence Perimeter Validator (25px Boundary)"]
-        S --> W["Low Battery Fail-Safe Monitor (<= 20% => RTH)"]
-        W & U & V --> X["Glass Cockpit Sidebar Diagnostics Display"]
-        R --> Y["Procedural Quadcopter Drawing Pipeline"]
-    end
-
-    S1 --> S3
-    S2 --> S3
-    S3 --> S4
-    S4 --> S5
+    Inputs["🎮 User Inputs<br/>(Clicks, 'P', Toggles)"] -.-> B
+    Inputs -.-> D
+    D -.->|"Battery <= 20%"| B
 ```
 
 ---
 
 ## 🔄 Mission Lifecycle State Machine
 
-The drone's internal autopilot state machine governs mission lifecycles, emergency interrupts, and battery fail-safes:
+A concise view of the autonomous state transitions governing flight, hover delays, and docking:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> OFFLINE: Simulation Booted
-    OFFLINE --> STANDBY_DOCKED: Left-Click on Map (Deploy Charging Base & Drone)
-
-    state STANDBY_DOCKED {
-        [*] --> FAST_CHARGING: Battery < 100%
-        FAST_CHARGING --> READY_TO_LAUNCH: Battery >= 35%
-        READY_TO_LAUNCH --> FAST_CHARGING: Battery Top-Off (+0.3%/frame)
-    }
-
-    STANDBY_DOCKED --> MANUAL_NAVIGATION: Right-Click Target (Battery >= 35%)
-    STANDBY_DOCKED --> PATROL_SURVEILLANCE: Press 'P' Key (Battery >= 35%)
-
-    state MANUAL_NAVIGATION {
-        [*] --> CRUISE_SPEED: Follow Smoothed Path Waypoints
-        CRUISE_SPEED --> CORNERING_BRAKE: Path Curvature > 0.4 rad
-        CORNERING_BRAKE --> CRUISE_SPEED: Turn Executed (Speed Restored)
-    }
-
-    state PATROL_SURVEILLANCE {
-        [*] --> PATROL_WAYPOINT: Route to Current Queue Node
-        PATROL_WAYPOINT --> PATROL_WAYPOINT: Pop Node & Select Next Waypoint
-    }
-
-    MANUAL_NAVIGATION --> HOVER_TELEMETRY_CHECK: Arrived at Destination Target
-    PATROL_SURVEILLANCE --> HOVER_TELEMETRY_CHECK: Final Patrol Waypoint Reached
-
-    state HOVER_TELEMETRY_CHECK {
-        [*] --> HOLD_STATION: Counter-Thrust Damping Active
-        HOLD_STATION --> COUNTDOWN: Hold Position for 2,000 ms
-    }
-
-    HOVER_TELEMETRY_CHECK --> RETURN_TO_HOME_RTH: 2.0s Timer Elapses
-    MANUAL_NAVIGATION --> RETURN_TO_HOME_RTH: Battery <= 20% (Low Power Emergency)
-    PATROL_SURVEILLANCE --> RETURN_TO_HOME_RTH: Battery <= 20% (Low Power Emergency)
-
-    state RETURN_TO_HOME_RTH {
-        [*] --> PLAN_RTH_PATH: Compute Optimal Route to Base Pad
-        PLAN_RTH_PATH --> HOMING_FLIGHT: Transit to Dock Coordinates
-    }
-
-    RETURN_TO_HOME_RTH --> STANDBY_DOCKED: Distance to Home < 6 px
-    MANUAL_NAVIGATION --> CRITICAL_SHUTDOWN: Battery <= 0%
-    PATROL_SURVEILLANCE --> CRITICAL_SHUTDOWN: Battery <= 0%
-    CRITICAL_SHUTDOWN --> STANDBY_DOCKED: Emergency Base Reset
+    [*] --> Standby: Deploy at Base Station
+    Standby --> InFlight: Target Clicked / Patrol (P) [Battery >= 35%]
+    InFlight --> Hover: Destination Reached
+    Hover --> Homing: 2.0s Telemetry Hold Done
+    InFlight --> Homing: Low Battery Warning (<= 20%)
+    Homing --> Standby: Reached Dock (< 6px)
+    Standby --> Standby: Fast Charging (+0.3%/frame)
 ```
 
 ---
@@ -188,53 +88,24 @@ stateDiagram-v2
 ## 🔬 Algorithmic Deep Dive & Workflows
 
 ### 1. Master A* Pathfinding Engine Workflow
-The simulator uses an upgraded A\* pathfinder with adaptive start/goal node relaxation, wall clearance repulsion, and high iteration headroom:
+Upgraded A\* search featuring adaptive start/goal relaxation and dynamic wall clearance repulsion:
 
 ```mermaid
 flowchart TD
-    StartA["Input: start(x,y), goal(x,y), binary_map"] --> CheckGoal{"Is goal node walkable?"}
-    
-    CheckGoal -- No --> GoalRelax["Spiral Search (Radius 1 to 5 px) for nearest open cell"]
-    GoalRelax --> GoalFound{"Open cell found?"}
-    GoalFound -- No --> ReturnFail["Return Empty Path: []"]
-    GoalFound -- Yes --> UpdateGoal["Set goal = Nearest Open Cell"]
-    CheckGoal -- Yes --> CheckStart{"Is start node walkable?"}
-    
-    UpdateGoal --> CheckStart
-    CheckStart -- No --> StartRelax["3x3 Neighborhood Search for open cell"]
-    StartRelax --> StartFound{"Open cell found?"}
-    StartFound -- No --> ReturnFail
-    StartFound -- Yes --> UpdateStart["Set start = Nearest Open Cell"]
-    CheckStart -- Yes --> InitQueue["Push (0, start) to open_set Priority Queue<br/>Initialize g_score[start] = 0<br/>Initialize came_from = {}"]
-
-    UpdateStart --> InitQueue
-    InitQueue --> Loop{"open_set not empty AND<br/>iterations < 50,000?"}
-    
-    Loop -- No --> ReturnFail
-    Loop -- Yes --> PopNode["Pop node with lowest f_score from open_set"]
-    PopNode --> IsGoal{"Is current node == goal?"}
-    
-    IsGoal -- Yes --> ReconstructPath["Trace came_from back to start<br/>Reverse path array<br/>Forward to Raycaster Smoother"]
-    IsGoal -- No --> GenNeighbors["Generate 4-Way Neighbors:<br/>(x, y-1), (x, y+1), (x-1, y), (x+1, y)"]
-    
-    GenNeighbors --> NeighborLoop["For each neighbor (nx, ny) within map bounds"]
-    NeighborLoop --> IsWalkable{"Is neighbor cell walkable?"}
-    
-    IsWalkable -- No --> NextNeighbor["Continue to next neighbor"]
-    IsWalkable -- Yes --> CalcCost["base_cost = 1<br/>proximity_penalty = 0<br/>Scan 8-pixel neighborhood around cell"]
-    
-    CalcCost --> WallScan["For all pixels (px+dx, py+dy) in 8px radius:<br/>If pixel is Wall => proximity_penalty += floor(480 / dist)"]
-    WallScan --> TotalCost["cost = base_cost + proximity_penalty<br/>tentative_g = g_score[current] + cost"]
-    
-    TotalCost --> BetterPath{"tentative_g < g_score[neighbor]?"}
-    BetterPath -- Yes --> UpdateScores["came_from[neighbor] = current<br/>g_score[neighbor] = tentative_g<br/>f_score[neighbor] = tentative_g + Manhattan(neighbor, goal)<br/>Push neighbor to open_set"]
-    BetterPath -- No --> NextNeighbor
-    UpdateScores --> NextNeighbor
-    NextNeighbor --> Loop
+    A["Start & Target Coords"] --> B{"Inside Wall?"}
+    B -- Yes --> C["Snap to Nearest Open Cell"]
+    B -- No --> D["Push Start into Priority Queue"]
+    C --> D
+    D --> E["Pop Lowest Cost Node: f = g + h"]
+    E --> F{"Goal Reached?"}
+    F -- Yes --> G["Reconstruct Path"]
+    F -- No --> H["Expand 4-Way Neighbors"]
+    H --> I["Add Wall Proximity Penalty: 480 / dist"]
+    I --> D
 ```
 
-### Mathematical Cost Formulation
-Every candidate cell $n$ is priced dynamically to naturally pull flight corridors toward room center-lines:
+#### Mathematical Cost Formulation
+Every candidate cell $n$ is dynamically evaluated to naturally pull flight corridors toward hallway center-lines:
 
 $$f(n) = g(n) + h(n) + \text{Penalty}_{\text{proximity}}(n)$$
 
@@ -243,108 +114,58 @@ $$\text{Penalty}_{\text{proximity}}(n) = \sum_{dx=-8}^{8} \sum_{dy=-8}^{8} \left
 ---
 
 ### 2. Adaptive Tapered Corridor Raycaster Path Smoother
-Standard A\* output produces jagged 90-degree orthogonal step lines. Our greedy corridor raycaster evaluates line-of-sight clearance across varying corridor bounding envelopes:
+Prunes jagged 90° grid paths into clean flight vectors while dynamically scaling clearance corridors:
 
 ```mermaid
 flowchart TD
-    InRaw["Input: raw_path from A* [P0, P1, ..., Pn]"] --> InitSmooth["current_index = 0<br/>smoothed_path = [ raw_path[0] ]"]
-    
-    InitSmooth --> OuterLoop{"current_index < len(raw_path) - 1?"}
-    OuterLoop -- No --> CheckFinal{"smoothed_path[-1] == goal?"}
-    CheckFinal -- No --> AppendGoal["smoothed_path.append(goal)"]
-    CheckFinal -- Yes --> OutputPath["Output: Optimized Smoothed Flight Path"]
-    AppendGoal --> OutputPath
-
-    OuterLoop -- Yes --> SetLookAhead["look_ahead = len(raw_path) - 1 (Greedy Search from End)"]
-    SetLookAhead --> InnerLoop{"look_ahead > current_index?"}
-    
-    InnerLoop -- No --> StepForward["current_index = current_index + 1<br/>smoothed_path.append(raw_path[current_index])"]
-    StepForward --> OuterLoop
-
-    InnerLoop -- Yes --> CalcDistGoal["Calculate Distance: dist_to_goal = Euclidean(P_current, Goal)"]
-    CalcDistGoal --> SelectBound{"Evaluate Distance Envelope"}
-    
-    SelectBound -- "dist < 8 px" --> Bound1["bound_size = 1 px<br/>(Surgical Target Alignment)"]
-    SelectBound -- "8 <= dist < 20 px" --> Bound3["bound_size = 3 px<br/>(Intermediate Transition)"]
-    SelectBound -- "dist >= 20 px" --> Bound5["bound_size = 5 px<br/>(Wide Corridor Cruising)"]
-
-    Bound1 & Bound3 & Bound5 --> CastRay["Bresenham Raycaster from P_current to P_lookahead"]
-    CastRay --> CheckPixels["For every ray coordinate (rx, ry):<br/>Check bounding box: (rx ± bound_size, ry ± bound_size)"]
-    
-    CheckPixels --> HitWall{"Any wall detected in bounding box?"}
-    HitWall -- Yes --> DecrementLookAhead["Ray Blocked!<br/>look_ahead = look_ahead - 1"]
-    DecrementLookAhead --> InnerLoop
-    
-    HitWall -- No --> RayClear["Clear Line of Sight Confirmed!<br/>smoothed_path.append(raw_path[look_ahead])<br/>current_index = look_ahead"]
-    RayClear --> OuterLoop
+    A["Raw A* Path"] --> B["Greedy Lookahead (End of Path -> Current)"]
+    B --> C["Select Clearance Envelope (1px / 3px / 5px)"]
+    C --> D{"Clear Line of Sight?"}
+    D -- Yes --> E["Prune Intermediate Nodes"]
+    D -- No --> F["Step Lookahead Backward"]
+    F --> C
+    E --> G{"Reached Goal?"}
+    G -- No --> B
+    G -- Yes --> H["Optimized Smooth Flight Path"]
 ```
 
 ---
 
 ## 🛸 Flight Physics & Kinetics Engine Workflow
 
-Every simulation frame ($60\text{ FPS}$), vector physics equations integrate thrust, rotational orientation, and aerodynamic drag damping:
+Every $60\text{ FPS}$ frame integrates thrust vectors, angular rotation interpolation, and drag friction damping:
 
 ```mermaid
 flowchart TD
-    FrameTick["Clock Tick (60 FPS)"] --> CheckPower{"Is Battery > 0%?"}
-    CheckPower -- No --> ZeroCutoff["Drone Inoperable: vx = 0, vy = 0"]
-    CheckPower -- Yes --> EvalUpgrades["Read Hardware Flags:<br/>Turbo Boost: 3x Speed, 3x Accel, 2.67x Drain<br/>Normal: 1x Speed, 1x Accel, 1x Drain"]
-    
-    EvalUpgrades --> BatteryDrain["Apply Dynamic Battery Discharge:<br/>battery = battery - drain_rate"]
-    BatteryDrain --> HasTarget{"Has active target coordinate?"}
-    
-    HasTarget -- Yes --> CalcHeading["dx = target_x - x<br/>dy = target_y - y<br/>target_angle = atan2(dy, dx)"]
-    CalcHeading --> ApplyThrust["Apply Vector Thrust Force:<br/>vx += cos(angle) * acceleration<br/>vy += sin(angle) * acceleration"]
-    HasTarget -- No --> DragOnly["No Active Thrust (Drift / Station Keeping)"]
-    
-    ApplyThrust & DragOnly --> VelocityClamp{"speed = sqrt(vx² + vy²) > max_speed?"}
-    VelocityClamp -- Yes --> Clamp["vx = (vx / speed) * max_speed<br/>vy = (vy / speed) * max_speed"]
-    VelocityClamp -- No --> ApplyDrag["Apply Aerodynamic Drag Friction:<br/>vx *= 0.80<br/>vy *= 0.80"]
-    Clamp --> ApplyDrag
-    
-    ApplyDrag --> PosUpdate["Update Coordinates:<br/>x += vx<br/>y += vy"]
-    PosUpdate --> RotInterp["Smooth Heading Rotation:<br/>diff = (target_angle - angle + 180) % 360 - 180<br/>angle += diff * 0.15"]
-    
-    RotInterp --> CheckArrival{"Distance to next node <= arrival_radius?<br/>arrival_radius = 8 + floor(speed * 2.5)"}
-    CheckArrival -- Yes --> PopNode["Pop node from active path list"]
-    CheckArrival -- No --> EndPhysics["Physics Frame Complete"]
-    PopNode --> EndPhysics
+    A["Next Waypoint & Drone State"] --> B["Calculate Heading Angle: atan2(dy, dx)"]
+    B --> C{"Sharp Turn Ahead (> 0.4 rad)?"}
+    C -- Yes --> D["Brake Speed by 75%"]
+    C -- No --> E["Apply Vector Thrust Force"]
+    D --> F["Apply Aerodynamic Drag: friction = 0.80"]
+    E --> F
+    F --> G["Integrate Velocity & Update Position"]
+    G --> H["Discharge Battery (-0.015% / -0.040%)"]
 ```
 
 ---
 
 ## 🧱 Dynamic In-Flight Obstacle Injection Workflow
 
-Users can dynamically manipulate the floorplan environment during flight. The diagram below illustrates how obstacles are verified and real-time paths are regenerated:
+Real-time obstacle spawning with instantaneous mid-flight path recalculation:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as User (Map Canvas)
-    participant Dispatcher as Event Dispatcher
-    participant BasePad as Docking Guard Validator
-    participant Grid as Binary Occupancy Map
-    participant Planner as Master A* Pathfinder
-    participant Drone as Drone Flight Controller
+    actor User as User
+    participant Grid as Binary Map
+    participant Planner as A* Planner
+    participant Drone as Flight Controller
 
-    User->>Dispatcher: Left-Click on Canvas (mx, my)
-    Dispatcher->>BasePad: Validate Coordinate (Is point within Charging Pad?)
-    alt Point Overlaps Charging Pad
-        BasePad-->>Dispatcher: REJECT ("Cannot block charging pad area!")
-    else Coordinate Safe
-        BasePad->>Grid: Write 36x36 px Obstacle Block (Value = 1)
-        Grid-->>Dispatcher: Obstacle Registered in Matrix
-        alt Drone Has Active Destination Target
-            Dispatcher->>Planner: Request Emergency Path Recalculation
-            Note over Planner: Start: (drone.x // 4, drone.y // 4)<br/>Goal: (target.x // 4, target.y // 4)
-            Planner->>Grid: Query Updated Occupancy & Proximity Field
-            Grid-->>Planner: Return Walkable Cells & Repulsion Costs
-            Planner->>Planner: A* Search + Tapered Corridor Raycaster
-            Planner-->>Drone: Inject New Smoothed Vector Trajectory
-            Note over Drone: Seamless Mid-Flight Path Correction!
-        end
-    end
+    User->>Grid: Left-Click to Spawn Obstacle Block
+    Note over Grid: Guard: Reject if on Charging Pad
+    Grid->>Planner: Trigger Real-Time Re-Plan
+    Planner->>Planner: Compute & Smooth New Route
+    Planner->>Drone: Hot-Swap Active Flight Path
 ```
 
 ---
@@ -355,33 +176,12 @@ The collision radar casts 24 radial rays to build an 8-octant spatial collision 
 
 ```mermaid
 flowchart TD
-    StartRadar["Initiate 360° Radar Sweep"] --> ConfigRange{"High-Res Radar Active?"}
-    ConfigRange -- Yes --> Set220["max_scan_range = 220 px"]
-    ConfigRange -- No --> Set120["max_scan_range = 120 px"]
-    
-    Set220 & Set120 --> InitOctants["Initialize 8 Octant Sectors: [False, ..., False]<br/>Loop angles: 0° to 360° in 15° steps (24 Rays)"]
-    
-    InitOctants --> CalcOctant["Compute Sector Index:<br/>sector = floor( (angle + 22.5°) % 360° / 45° )"]
-    CalcOctant --> RayMarch["March Ray: dist = 20 px to max_scan_range (Step = 6 px)"]
-    
-    RayMarch --> SamplePixel["Sample Pixel Coordinate:<br/>sx = x + cos(angle) * dist<br/>sy = y + sin(angle) * dist"]
-    
-    SamplePixel --> BoundsCheck{"Within Map Canvas Bounds?"}
-    BoundsCheck -- No --> BreakRay["Break Ray (Reached Perimeter)"]
-    BoundsCheck -- Yes --> HitCheck{"binary_map[sy][sx] > 0 (Obstacle Hit)?"}
-    
-    HitCheck -- Yes --> FlagSector["Draw Red Collision Point<br/>radar_sectors[sector] = True<br/>sensor_collision = True"]
-    FlagSector --> NextRay["Advance to Next Radial Angle"]
-    
-    HitCheck -- No --> DrawRay["Draw Blue Ray Particle"]
-    DrawRay --> DistanceCheck{"dist reached max_scan_range?"}
-    DistanceCheck -- No --> RayMarch
-    DistanceCheck -- Yes --> NextRay
-    
-    NextRay --> AllDone{"All 24 Rays Evaluated?"}
-    AllDone -- No --> CalcOctant
-    AllDone -- Yes --> RenderArcs["Draw 8-Octant HUD Arcs around Drone:<br/>If sector is True => Draw Red Arc (Alert)<br/>If sector is False => Draw Green Arc (Clear)"]
-    RenderArcs --> UpdateHUD["Push Telemetry Alert to Sidebar Display"]
+    A["Drone Center Point"] --> B["Cast 24 Radial Rays (15° Steps)"]
+    B --> C["Step Ray outward (120px Normal / 220px High-Res)"]
+    C --> D{"Hit Obstacle?"}
+    D -- Yes --> E["Mark Sector Red (Alert)"]
+    D -- No --> F["Mark Sector Green (Clear)"]
+    E & F --> G["Draw 8-Octant HUD Arcs & Update Sidebar Alerts"]
 ```
 
 ---
