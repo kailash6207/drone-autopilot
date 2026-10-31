@@ -1,5 +1,4 @@
 from PIL import Image, ImageFilter
-import numpy as np
 from config import MAP_WIDTH, WINDOW_HEIGHT
 
 def process_floorplan(image_path):
@@ -16,7 +15,13 @@ def process_floorplan(image_path):
     img = img.filter(ImageFilter.MinFilter(3))
     img = img.filter(ImageFilter.MinFilter(3))
     
-    img_array = np.array(img)
-    binary_map = np.where(img_array < 50, 1, 0)
-    
-    return binary_map.tolist()
+    try:
+        import numpy as np
+        img_array = np.array(img)
+        binary_map = np.where(img_array < 50, 1, 0).tolist()
+    except Exception:
+        pix = img.load()
+        w, h = img.size
+        binary_map = [[1 if pix[x, y] < 50 else 0 for x in range(w)] for y in range(h)]
+        
+    return binary_map

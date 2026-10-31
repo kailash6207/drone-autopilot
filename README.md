@@ -193,9 +193,11 @@ flowchart TD
 | **Left-Click (Map)** | **Initial Drone Deployment** | Spawns the drone and sets its permanent home charging dock station (must be clicked on open floor). |
 | **Left-Click (Map)** | **Spawn Obstacle Block** | When deployed, spawns a $36\times 36\text{ px}$ obstacle block. Triggers immediate dynamic path recalculation in real-time. Protected: Cannot place over base station. |
 | **Right-Click (Map)** | **Set Target Destination** | Computes smoothed vector trajectory to the clicked coordinate. If docked, initiates departure (requires $\ge 35\%$ battery). |
-| **`[P]` Key** | **Toggle Auto Patrol** | Starts/stops autonomous surveillance loop through 7 residential waypoints across the property. |
-| **Turbo Boost (UI)** | **Toggle Turbo Drive** | Increases speed ceiling ($3\times$) and acceleration ($3\times$); increases battery consumption ($2.67\times$). |
-| **High-Res Radar (UI)** | **Toggle Radar Range** | Extends 360° sensor raycasting envelope from $120\text{ px}$ to $220\text{ px}$. |
+| **`[P]` Key / UI Button** | **Toggle Auto Patrol** | Starts/stops autonomous surveillance loop through 7 residential waypoints across the property. |
+| **`[H]` Key / UI Button** | **Return To Dock (RTH)** | Instantly commands the drone to abort the active mission and return to the charging pad. |
+| **`[C]` Key / UI Button** | **Clear Dynamic Obstacles** | Clears all injected obstacle blocks and restores original floorplan with instant path update. |
+| **`[T]` Key / UI Button** | **Toggle Turbo Drive** | Increases speed ceiling ($2.4\times$) and acceleration; dynamically manages battery drain. |
+| **`[R]` Key / UI Button** | **Toggle Radar Range** | Extends 360° sensor raycasting envelope from $125\text{ px}$ to $220\text{ px}$. |
 
 ---
 
