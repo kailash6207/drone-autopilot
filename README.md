@@ -349,10 +349,10 @@ All primary operational parameters can be customized in [`config.py`](file:///D:
 To alter the automated patrol route, edit the `WAYPOINTS` and `WAYPOINT_NAMES` arrays in [`main.py`](file:///D:/VSCODE/drone-autopilot/main.py#L50-L80):
 ```python
 WAYPOINTS = [
-    (170, 130), # 1. Top-Left Study / Office
-    (450, 130), # 2. North Gallery / Atrium
-    (820, 130), # 3. Top-Right Bedroom 1
-    (820, 250), # 4. Kitchen & Pantry
+    (130, 115), # 1. Top-Left Study / Office (Deep Northwest Room)
+    (450, 140), # 2. North Gallery / Atrium (Center North Pavilion)
+    (850, 115), # 3. Top-Right Bedroom 1 (Deep Northeast Suite)
+    (820, 260), # 4. Kitchen & Pantry
     (820, 365), # 5. East Studio / Bedroom 2
     (550, 260), # 6. Central Great Hall
     (380, 260), # 7. Center North Salon

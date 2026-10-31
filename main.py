@@ -49,10 +49,10 @@ ring_alpha = 255
 
 # Comprehensive Multi-Room Surveillance Patrol Loop across the Entire House
 WAYPOINTS = [
-    (170, 130), # 1. Top-Left Study / Office
-    (450, 130), # 2. North Gallery / Atrium
-    (820, 130), # 3. Top-Right Bedroom 1
-    (820, 250), # 4. Kitchen & Pantry
+    (130, 115), # 1. Top-Left Study / Office (Deep Northwest Room)
+    (450, 140), # 2. North Gallery / Atrium (Center North Pavilion)
+    (850, 115), # 3. Top-Right Bedroom 1 (Deep Northeast Suite)
+    (820, 260), # 4. Kitchen & Pantry
     (820, 365), # 5. East Studio / Bedroom 2
     (550, 260), # 6. Central Great Hall
     (380, 260), # 7. Center North Salon
@@ -152,6 +152,7 @@ while running:
                 if patrol_mode:
                     drone.is_docking = False  
                     patrol_queue = WAYPOINTS.copy()
+                    target = None
                     path = []
                     min_distance_recorded = float('inf')
                     destination_hold_time = 0
@@ -183,6 +184,7 @@ while running:
                         if patrol_mode:
                             drone.is_docking = False
                             patrol_queue = WAYPOINTS.copy()
+                            target = None
                             path = []
                             min_distance_recorded = float('inf')
                             destination_hold_time = 0
@@ -282,12 +284,14 @@ while running:
                 target = None
                 destination_hold_time = 0
 
-        # Autonomous Patrol Mode Loop Management
-        if patrol_mode and len(path) == 0 and len(patrol_queue) > 0:
+        # Autonomous Patrol Mode Loop Management (Initialize target if not set)
+        if patrol_mode and target is None and len(patrol_queue) > 0:
             next_destination = patrol_queue.pop(0)
             target = next_destination
             min_distance_recorded = float('inf')
             destination_hold_time = 0
+            ring_radius = 0
+            ring_alpha = 255
             start_node = (int(drone.x // GRID_SIZE), int(drone.y // GRID_SIZE))
             goal_node = (int(target[0] // GRID_SIZE), int(target[1] // GRID_SIZE))
             path = astar(binary_map, start_node, goal_node, GRID_SIZE)
@@ -334,7 +338,7 @@ while running:
                 min_distance_recorded = dist_to_final_target
 
             # In flight approach phase
-            if dist_to_final_target > 3.0 and destination_hold_time == 0:
+            if dist_to_final_target > 4.0 and destination_hold_time == 0:
                 target_node_x, target_node_y = target[0], target[1]
             else:
                 # Reached destination: actively arrest velocity and lock position!
@@ -348,10 +352,24 @@ while running:
                     drone.x += (target[0] - drone.x) * 0.35
                     drone.y += (target[1] - drone.y) * 0.35
 
-                if distance_to_home > 12:
-                    if destination_hold_time == 0:
-                        destination_hold_time = pygame.time.get_ticks()
-                    
+                if destination_hold_time == 0:
+                    destination_hold_time = pygame.time.get_ticks()
+
+                if patrol_mode:
+                    # Conduct an 800ms room surveillance scan, then advance to next room
+                    if pygame.time.get_ticks() - destination_hold_time >= 800:
+                        destination_hold_time = 0
+                        if len(patrol_queue) == 0:
+                            patrol_queue = WAYPOINTS.copy()
+                        next_destination = patrol_queue.pop(0)
+                        target = next_destination
+                        min_distance_recorded = float('inf')
+                        ring_radius = 0
+                        ring_alpha = 255
+                        start_node = (int(drone.x // GRID_SIZE), int(drone.y // GRID_SIZE))
+                        goal_node = (int(target[0] // GRID_SIZE), int(target[1] // GRID_SIZE))
+                        path = astar(binary_map, start_node, goal_node, GRID_SIZE)
+                elif distance_to_home > 12:
                     if pygame.time.get_ticks() - destination_hold_time >= 2000:
                         trigger_rth()
                 else:
@@ -437,10 +455,12 @@ while running:
 
         # Render Target Marker & Pulsing Ring
         if target:
-            pygame.draw.circle(screen, RED, target, 6)
+            target_dot_col = GREEN if (patrol_mode and destination_hold_time > 0) else RED
+            pygame.draw.circle(screen, target_dot_col, target, 6)
             if ring_alpha > 0:
                 surf = pygame.Surface((100, 100), pygame.SRCALPHA)
-                pygame.draw.circle(surf, (255, 60, 60, ring_alpha), (50, 50), ring_radius, 2)
+                ring_col = (0, 255, 120, ring_alpha) if (patrol_mode and destination_hold_time > 0) else (255, 60, 60, ring_alpha)
+                pygame.draw.circle(surf, ring_col, (50, 50), ring_radius, 2)
                 screen.blit(surf, (target[0] - 50, target[1] - 50))
                 ring_radius = (ring_radius + 2) % 40
                 ring_alpha = max(0, ring_alpha - 5)
@@ -512,7 +532,8 @@ while running:
     elif patrol_mode:
         if target in WAYPOINTS:
             wpt_idx = WAYPOINTS.index(target)
-            mode_text = f"PATROL: {WAYPOINT_NAMES[wpt_idx]} [{wpt_idx + 1}/{len(WAYPOINTS)}]"
+            status_tag = " [SCANNING]" if destination_hold_time > 0 else f" [{wpt_idx + 1}/{len(WAYPOINTS)}]"
+            mode_text = f"PATROL: {WAYPOINT_NAMES[wpt_idx]}{status_tag}"
         else:
             mode_text = "AUTO PATROL ALL ROOMS"
         mode_color = GREEN
