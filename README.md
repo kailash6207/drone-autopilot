@@ -4,12 +4,12 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Pygame](https://img.shields.io/badge/Pygame-2.6+-1B5E20?style=for-the-badge&logo=pygame&logoColor=white)](https://www.pygame.org/)
-[![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](https://opencv.org/)
+[![Pillow](https://img.shields.io/badge/Pillow-Image%20Processing-00599C?style=for-the-badge&logo=python&logoColor=white)](https://python-pillow.org/)
 [![NumPy](https://img.shields.io/badge/NumPy-Numerical%20Engine-013243?style=for-the-badge&logo=numpy&logoColor=white)](https://numpy.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-Yes-green.svg?style=for-the-badge)](https://github.com/kailash6207/drone-autopilot)
 
-**A real-time autonomous robotics simulator built with Pygame featuring computer-vision floorplan ingestion, center-line biased A\* pathfinding, adaptive corridor raycasting, 2D vector flight physics, 360° proximity radar, and autonomous fail-safe docking.**
+**A real-time autonomous robotics simulator built with Pygame featuring computer-vision floorplan ingestion, 8-directional center-line biased A\* pathfinding, corner-safe raycasting, 2D vector flight aerodynamics, 360° proximity radar, architectural geofencing ("OUT OF HOUSE" alert), and autonomous fail-safe docking.**
 
 [Key Features](#-key-features) •
 [System Architecture](#-system-architecture--pipeline-flowchart) •
@@ -30,10 +30,11 @@
 **Drone Autopilot** is a 2D autonomous robotic simulation environment designed to model realistic indoor unmanned aerial vehicle (UAV) navigation through complex architectural spaces. 
 
 Instead of relying on idealized point-mass movement or trivial grid paths, the simulator implements an integrated robotics stack:
-- **Floorplan Computer Vision Pipeline:** Extracts walkable corridors and inflates obstacle boundaries from raw architectural drawings.
-- **Center-Line Biased A\* Planner:** Dynamic wall proximity penalty field repels paths away from tight doorframes and corners, routing the drone naturally through hallway centers.
-- **Adaptive Corridor Raycaster Smoother:** Tapered line-of-sight corridor projection converts jagged grid steps into smooth continuous flight paths.
-- **Kinetic Vector Flight Mechanics:** Inertial acceleration vectors, velocity caps, angular rotational interpolation, and high-traction aerodynamic drag eliminate drift and overshoot.
+- **Floorplan Computer Vision Pipeline:** Ingests architectural blueprints with automatic morphological wall dilation, featuring a resilient pure-Python PIL fallback for restricted environments (e.g., Windows Smart App Control).
+- **Center-Line Biased 8-Directional A\* Planner:** Multi-source BFS distance transform repels paths away from tight doorframes and corners, routing the drone naturally through hallway centers with Euclidean heuristics.
+- **Corner-Safe Raycaster Smoother:** Line-of-sight raycaster with a guaranteed $20\text{ px}$ corner safety clearance converts jagged grid steps into direct, collision-free waypoints without corner clipping.
+- **Kinetic Vector Aerodynamics & Overshoot Control:** Smooth velocity lerp physics, proactive corner braking, and an $85\text{ px}$ proportional deceleration zone eliminate Turbo Mode overshoot and trajectory drift.
+- **Architectural Geofence & Alert System:** Dynamic flood-fill boundary detection triggers immediate **"OUT OF HOUSE"** warnings, flashing HUD alert banners, and a strobe halo when leaving the indoor envelope.
 - **Fail-Safe Mission State Machine:** Autonomous mission lifecycle managing launch, point-to-point guidance, automated patrol loops, 2-second hover telemetry checks, emergency low-battery return-to-home (RTH), and fast inductive docking.
 - **360° Octant Radar & HUD Diagnostics:** 24-ray radar sweep with real-time radial collision warning arcs around the drone chassis and live glass-cockpit telemetry.
 
@@ -41,12 +42,13 @@ Instead of relying on idealized point-mass movement or trivial grid paths, the s
 
 ## 🌟 Key Features
 
-- **🧭 Center-Line Biased A\*:** 50,000 loop iteration headroom with dynamic inverse-distance wall repulsion ($\sum \frac{480}{\text{dist}}$) pulling trajectories to corridor center-lines.
-- **📐 Adaptive Corridor Raycasting:** Greedy Bresenham line-of-sight smoother with distance-scaled clearance envelopes ($1\text{px}$, $3\text{px}$, $5\text{px}$) for natural, corner-safe flight paths.
-- **🛸 Kinetic Vector Aerodynamics:** Rotational interpolation ($\Delta\theta \times 0.15$), aerodynamic drag damping (`0.80`), and curvature lookahead braking (75% throttle reduction when $|\Delta\theta| > 0.4\text{ rad}$).
+- **🧭 8-Directional Diagonal A\* with Center-Line Bias:** Euclidean distance heuristic with precomputed Euclidean BFS distance transform ($\max(0, 40 - \text{dist\_map}) \times 1.4$) pulling trajectories safely to corridor center-lines.
+- **📐 Corner-Safe Line-of-Sight Raycasting:** Multi-sample corridor raycaster enforcing a minimum $20\text{ px}$ clearance around corners, eliminating edge clipping.
+- **🛸 Velocity Lerping & Drift Elimination:** Smooth exponential velocity lerp (`0.14`), proportional arrival deceleration zone ($85\text{ px}$), active target lock, and potential-field obstacle repulsion cushion ($20\text{ px}$) prevent Turbo Mode drift.
+- **⚠️ Real-Time "OUT OF HOUSE" Geofence:** Architectural flood-fill geofence triggers audio-visual alerts, pulsing border highlights, and a drone warning halo if the craft exits the house footprint.
 - **📡 360° Octant Proximity Radar:** 24-ray radial scan with 8-sector status arcs around the chassis and toggleable range ($120\text{ px}$ Standard vs. $220\text{ px}$ High-Res).
 - **🔋 Autonomous Mission Lifecycle:** Automated 2-second target hover validation, low-power emergency RTH ($\le 20\%$), inductive pad fast-recharge ($+0.3\%/\text{frame}$), and departure safety check ($\ge 35\%$).
-- **🧱 Live Interactive Sandbox:** Dynamic in-flight obstacle spawning with instantaneous path recalculation, protected home base station, and geofence boundary warnings.
+- **🧱 Live Interactive Sandbox:** Dynamic in-flight obstacle spawning with instantaneous path recalculation, obstacle clearing (`[C]`), protected home base station, and one-key return to dock (`[H]`).
 
 ---
 
@@ -88,7 +90,7 @@ stateDiagram-v2
 ## 🔬 Algorithmic Deep Dive & Workflows
 
 ### 1. Master A* Pathfinding Engine Workflow
-Upgraded A\* search featuring adaptive start/goal relaxation and dynamic wall clearance repulsion:
+Upgraded 8-directional A\* search with precomputed Euclidean BFS distance transform for corridor centerline bias:
 
 ```mermaid
 flowchart TD
@@ -96,55 +98,66 @@ flowchart TD
     B -- Yes --> C["Snap to Nearest Open Cell"]
     B -- No --> D["Push Start into Priority Queue"]
     C --> D
-    D --> E["Pop Lowest Cost Node: f = g + h"]
+    D --> E["Pop Lowest Cost Node: f = g + h + penalty"]
     E --> F{"Goal Reached?"}
     F -- Yes --> G["Reconstruct Path"]
-    F -- No --> H["Expand 4-Way Neighbors"]
-    H --> I["Add Wall Proximity Penalty: 480 / dist"]
+    F -- No --> H["Expand 8-Directional Neighbors (Diag: √2)"]
+    H --> I["Add BFS Centerline Penalty: max(0, 40 - dist_map) * 1.4"]
     I --> D
 ```
 
 #### Mathematical Cost Formulation
-Every candidate cell $n$ is dynamically evaluated to naturally pull flight corridors toward hallway center-lines:
+Candidate cells $n$ are evaluated using an 8-directional diagonal movement model with a precalculated Euclidean distance transform:
 
 $$f(n) = g(n) + h(n) + \text{Penalty}_{\text{proximity}}(n)$$
 
-$$\text{Penalty}_{\text{proximity}}(n) = \sum_{dx=-8}^{8} \sum_{dy=-8}^{8} \left\lfloor \frac{480}{\sqrt{dx^2 + dy^2}} \right\rfloor \quad \forall (px+dx, py+dy) \in \text{Walls}$$
+Where the Euclidean heuristic $h(n)$ and the corridor centerline penalty are formulated as:
+
+$$h(n) = \sqrt{(x - x_{\text{goal}})^2 + (y - y_{\text{goal}})^2}$$
+
+$$\text{Penalty}_{\text{proximity}}(n) = \max\left(0, 40 - \text{dist\_map}[y, x]\right) \times 1.4$$
+
+*Note: $\text{dist\_map}$ is precomputed once per map/obstacle modification via a multi-source Breadth-First Search (BFS), keeping per-node pathfinding overhead $O(1)$.*
 
 ---
 
-### 2. Adaptive Tapered Corridor Raycaster Path Smoother
-Prunes jagged 90° grid paths into clean flight vectors while dynamically scaling clearance corridors:
+### 2. Corner-Safe Corridor Raycaster Path Smoother
+Prunes intermediate grid nodes while guaranteeing a minimum $20\text{ px}$ clearance around corners to prevent clipping:
 
 ```mermaid
 flowchart TD
-    A["Raw A* Path"] --> B["Greedy Lookahead (End of Path -> Current)"]
-    B --> C["Select Clearance Envelope (1px / 3px / 5px)"]
-    C --> D{"Clear Line of Sight?"}
-    D -- Yes --> E["Prune Intermediate Nodes"]
-    D -- No --> F["Step Lookahead Backward"]
-    F --> C
-    E --> G{"Reached Goal?"}
+    A["Raw A* Path Nodes"] --> B["Greedy Lookahead (Farthest Reachable Node)"]
+    B --> C["Raycast Line-of-Sight with 20px Clearance Envelope"]
+    C --> D{"Clearance Violated at Any Step?"}
+    D -- Yes --> E["Step Target Backward Along Path"]
+    D -- No --> F["Connect Waypoint Directly & Prune Intermediate Nodes"]
+    E --> C
+    F --> G{"Reached Goal?"}
     G -- No --> B
-    G -- Yes --> H["Optimized Smooth Flight Path"]
+    G -- Yes --> H["Smooth, Corner-Safe Trajectory"]
 ```
 
 ---
 
 ## 🛸 Flight Physics & Kinetics Engine Workflow
 
-Every $60\text{ FPS}$ frame integrates thrust vectors, angular rotation interpolation, and drag friction damping:
+Every $60\text{ FPS}$ frame integrates smooth velocity lerping, proactive corner braking, and an arrival deceleration envelope:
 
 ```mermaid
 flowchart TD
     A["Next Waypoint & Drone State"] --> B["Calculate Heading Angle: atan2(dy, dx)"]
-    B --> C{"Sharp Turn Ahead (> 0.4 rad)?"}
-    C -- Yes --> D["Brake Speed by 75%"]
-    C -- No --> E["Apply Vector Thrust Force"]
-    D --> F["Apply Aerodynamic Drag: friction = 0.80"]
-    E --> F
-    F --> G["Integrate Velocity & Update Position"]
-    G --> H["Discharge Battery (-0.015% / -0.040%)"]
+    B --> C{"Corner Turn Ahead?"}
+    C -- Yes --> D["Clamp Maximum Speed (Speed Limit = 3.6 px/frame)"]
+    C -- No --> E["Calculate Distance to Target Destination"]
+    D --> E
+    E --> F{"Distance < 85px (Arrival Zone)?"}
+    F -- Yes --> G["Scale Target Speed Linearly (v = max_speed * dist / 85)"]
+    F -- No --> H["Cruising Target Speed"]
+    G --> I["Smooth Velocity Lerp: v = lerp(v, target_v, 0.14)"]
+    H --> I
+    I --> J["Apply Obstacle Repulsion Cushion (20px envelope)"]
+    J --> K["Integrate Velocity & Update Position"]
+    K --> L["Target Reached (< 3px)? -> Lock Position (Zero Drift)"]
 ```
 
 ---
@@ -236,7 +249,7 @@ The persistent right-side HUD panel displays real-time glass-cockpit flight metr
 - **`AUTO PATROL SURVEILLANCE`**: Continuous autonomous patrol executing multi-room surveillance waypoints.
 - **`OBJECTIVE HOVER DELAY...`**: Reached target coordinates; holding position for 2,000 ms telemetry check.
 - **`RETURNING TO CHARGING DOCK`**: Mission complete or low battery; returning to base station pad.
-- **`GEOFENCE BREACHED!`**: Warning triggered when drone approaches within $25\text{ px}$ of simulator boundary.
+- **`[!] WARNING: DRONE OUT OF HOUSE!`**: Flashing alert banner, yellow/red screen border strobe, and drone halo triggered if the drone crosses outside the indoor architectural footprint.
 
 ---
 
@@ -244,16 +257,19 @@ The persistent right-side HUD panel displays real-time glass-cockpit flight metr
 
 ```bash
 drone-autopilot/
-├── config.py             # Global constants, window dimensions, grid resolution & color schemes
-├── drone.py              # Drone physics model, kinetic equations, drag damping & quadcopter renderer
-├── image_processing.py   # Floorplan ingestion, scaling, morphological dilation & grid binarization
-├── main.py               # Main simulation loop, event dispatcher, HUD dashboard & mission state machine
-├── pathfinding.py        # Master A* planner, proximity cost field & tapered corridor raycaster
-├── requirements.txt      # Python dependencies (pygame, opencv-python, numpy, Pillow)
-├── house.png             # Architectural floorplan source image
-├── debug_map.png         # Diagnostic visual map output
+├── config.py                        # Constants, window dimensions, grid resolution, colors & speed settings
+├── drone.py                         # Drone flight physics, velocity lerping, corner braking & quadcopter rendering
+├── image_processing.py              # Floorplan ingestion, wall inflation & pure PIL fallback parser
+├── main.py                          # Simulation loop, HUD diagnostics, geofence monitor & event dispatcher
+├── pathfinding.py                   # 8-directional A* engine, BFS Euclidean distance transform & corridor raycaster
+├── requirements.txt                 # Python dependencies (pygame, Pillow, numpy)
+├── run.bat                          # One-click Windows / WSL launcher script
+├── run.ps1                          # PowerShell launcher script
+├── Drone_Autopilot_Presentation.pptx # Project architecture presentation deck
+├── house.png                        # Architectural floorplan source image
+├── debug_map.png                    # Diagnostic binary map output
 └── images/
-    └── house.png         # Scaled floorplan asset for runtime rendering
+    └── house.png                    # Scaled floorplan asset for runtime rendering
 ```
 
 ---
@@ -262,7 +278,7 @@ drone-autopilot/
 
 ### Prerequisites
 - **Python 3.10+** (Tested on Python 3.10, 3.11, and 3.12)
-- Operating System: Windows, macOS, or Linux
+- Operating System: Windows, macOS, or Linux / WSL2
 
 ### 1. Clone the Repository
 ```bash
@@ -286,21 +302,23 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> **Requirements include:**
-> - `pygame` (Rendering engine & window management)
-> - `opencv-python` (Computer vision image handling)
-> - `numpy` (High-performance array operations)
-> - `Pillow` (PIL morphological image filtering & wall inflation)
+> **Requirements:**
+> - `pygame>=2.5.0` (Rendering engine & window management)
+> - `Pillow>=9.0.0` (PIL image processing, morphological filtering & wall inflation)
+> - `numpy>=1.20.0` (Numerical engine, with pure PIL fallback if C-extensions are restricted)
 
 ### 4. Run the Simulator
 ```bash
-# Windows
-py main.py
-# or
+# Direct Python execution:
 python main.py
+# or
+py main.py
 
-# macOS / Linux
-python3 main.py
+# On Windows with Smart App Control (SAC) / DLL Restrictions:
+# Simply run the included batch launcher via WSL:
+run.bat
+# or in PowerShell:
+.\run.ps1
 ```
 
 ---
@@ -315,7 +333,7 @@ All primary operational parameters can be customized in [`config.py`](file:///D:
 | `MAP_WIDTH` | `1000` | Width allocated to the floorplan navigation canvas. |
 | `WINDOW_HEIGHT` | `700` | Window and canvas height in pixels. |
 | `GRID_SIZE` | `4` | Discretization resolution in pixels per pathfinding grid cell. |
-| `DRONE_SPEED` | `4` | Base maximum speed constant for drone movement. |
+| `DRONE_SPEED` | `5.2` | Base cruising speed constant for drone flight. |
 | `DRONE_SIZE` | `20` | Reference diameter for drone collision footprint. |
 
 ### Using a Custom Floorplan
