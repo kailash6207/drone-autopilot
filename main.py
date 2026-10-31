@@ -18,6 +18,7 @@ FONT_TITLE = pygame.font.SysFont("Consolas", 15, bold=True)
 FONT_BOLD = pygame.font.SysFont("Consolas", 14, bold=True)
 FONT_MAIN = pygame.font.SysFont("Consolas", 12)
 FONT_SMALL = pygame.font.SysFont("Consolas", 11)
+FONT_NUM = pygame.font.SysFont("Consolas", 10, bold=True)
 
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("AI Autonomous Drone - Command Console & Autopilot")
@@ -46,9 +47,37 @@ destination_hold_time = 0
 ring_radius = 0
 ring_alpha = 255
 
+# Comprehensive Multi-Room Surveillance Patrol Loop across the Entire House
 WAYPOINTS = [
-    (160, 230), (160, 560), (450, 230),
-    (550, 230), (550, 560), (800, 400), (800, 560)
+    (170, 130), # 1. Top-Left Study / Office
+    (450, 130), # 2. North Gallery / Atrium
+    (820, 130), # 3. Top-Right Bedroom 1
+    (820, 250), # 4. Kitchen & Pantry
+    (820, 365), # 5. East Studio / Bedroom 2
+    (550, 260), # 6. Central Great Hall
+    (380, 260), # 7. Center North Salon
+    (550, 450), # 8. South-Center Dining Hall
+    (480, 560), # 9. South Entrance Portico
+    (170, 580), # 10. South-West Suite / Porch
+    (170, 470), # 11. Bot-Left Bedroom
+    (170, 340), # 12. Mid-Left Lounge
+    (170, 230), # 13. West Foyer & Hall
+]
+
+WAYPOINT_NAMES = [
+    "Top-Left Study",
+    "North Gallery",
+    "Top-Right Bedroom",
+    "Kitchen & Pantry",
+    "East Studio",
+    "Central Hall",
+    "North Salon",
+    "South Dining",
+    "South Portico",
+    "South-West Suite",
+    "Bot-Left Bedroom",
+    "Mid-Left Lounge",
+    "West Foyer",
 ]
 patrol_queue = []
 patrol_mode = False
@@ -123,6 +152,7 @@ while running:
                 if patrol_mode:
                     drone.is_docking = False  
                     patrol_queue = WAYPOINTS.copy()
+                    path = []
                     min_distance_recorded = float('inf')
                     destination_hold_time = 0
                 else:
@@ -153,6 +183,7 @@ while running:
                         if patrol_mode:
                             drone.is_docking = False
                             patrol_queue = WAYPOINTS.copy()
+                            path = []
                             min_distance_recorded = float('inf')
                             destination_hold_time = 0
                         else:
@@ -394,6 +425,16 @@ while running:
                 pygame.draw.circle(screen, CYAN, pt, 5, 1)
                 pygame.draw.circle(screen, WHITE, pt, 2)
 
+        # Render Patrol Mode Room Waypoint Markers
+        if patrol_mode:
+            for idx, wpt in enumerate(WAYPOINTS):
+                is_active_target = (target == wpt)
+                node_col = GREEN if is_active_target else (0, 160, 220)
+                pygame.draw.circle(screen, node_col, wpt, 6, 2 if not is_active_target else 3)
+                pygame.draw.circle(screen, WHITE if is_active_target else (100, 200, 255), wpt, 2)
+                badge_txt = FONT_NUM.render(str(idx + 1), True, (200, 240, 255) if not is_active_target else GREEN)
+                screen.blit(badge_txt, (wpt[0] + 8, wpt[1] - 8))
+
         # Render Target Marker & Pulsing Ring
         if target:
             pygame.draw.circle(screen, RED, target, 6)
@@ -469,7 +510,12 @@ while running:
         mode_text = "OUT OF HOUSE"
         mode_color = RED if flash_text else (190, 60, 60)
     elif patrol_mode:
-        mode_text, mode_color = "AUTO PATROL SURVEILLANCE", GREEN
+        if target in WAYPOINTS:
+            wpt_idx = WAYPOINTS.index(target)
+            mode_text = f"PATROL: {WAYPOINT_NAMES[wpt_idx]} [{wpt_idx + 1}/{len(WAYPOINTS)}]"
+        else:
+            mode_text = "AUTO PATROL ALL ROOMS"
+        mode_color = GREEN
     elif destination_hold_time > 0:
         mode_text, mode_color = "OBJECTIVE HOVER DELAY", BLUE
     elif drone.is_docking:

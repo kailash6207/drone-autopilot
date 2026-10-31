@@ -206,7 +206,7 @@ flowchart TD
 | **Left-Click (Map)** | **Initial Drone Deployment** | Spawns the drone and sets its permanent home charging dock station (must be clicked on open floor). |
 | **Left-Click (Map)** | **Spawn Obstacle Block** | When deployed, spawns a $36\times 36\text{ px}$ obstacle block. Triggers immediate dynamic path recalculation in real-time. Protected: Cannot place over base station. |
 | **Right-Click (Map)** | **Set Target Destination** | Computes smoothed vector trajectory to the clicked coordinate. If docked, initiates departure (requires $\ge 35\%$ battery). |
-| **`[P]` Key / UI Button** | **Toggle Auto Patrol** | Starts/stops autonomous surveillance loop through 7 residential waypoints across the property. |
+| **`[P]` Key / UI Button** | **Toggle Auto Patrol** | Starts/stops autonomous multi-room surveillance tour through 13 residential waypoints visiting every room across the house. |
 | **`[H]` Key / UI Button** | **Return To Dock (RTH)** | Instantly commands the drone to abort the active mission and return to the charging pad. |
 | **`[C]` Key / UI Button** | **Clear Dynamic Obstacles** | Clears all injected obstacle blocks and restores original floorplan with instant path update. |
 | **`[T]` Key / UI Button** | **Toggle Turbo Drive** | Increases speed ceiling ($2.4\times$) and acceleration; dynamically manages battery drain. |
@@ -346,11 +346,22 @@ All primary operational parameters can be customized in [`config.py`](file:///D:
    ```
 
 ### Modifying Surveillance Waypoints
-To alter the automated patrol route, edit the `WAYPOINTS` array in [`main.py`](file:///D:/VSCODE/drone-autopilot/main.py#L42-L45):
+To alter the automated patrol route, edit the `WAYPOINTS` and `WAYPOINT_NAMES` arrays in [`main.py`](file:///D:/VSCODE/drone-autopilot/main.py#L50-L80):
 ```python
 WAYPOINTS = [
-    (150, 200), (150, 600), (450, 200),
-    (550, 200), (550, 600), (800, 400), (800, 600)
+    (170, 130), # 1. Top-Left Study / Office
+    (450, 130), # 2. North Gallery / Atrium
+    (820, 130), # 3. Top-Right Bedroom 1
+    (820, 250), # 4. Kitchen & Pantry
+    (820, 365), # 5. East Studio / Bedroom 2
+    (550, 260), # 6. Central Great Hall
+    (380, 260), # 7. Center North Salon
+    (550, 450), # 8. South-Center Dining Hall
+    (480, 560), # 9. South Entrance Portico
+    (170, 580), # 10. South-West Suite / Porch
+    (170, 470), # 11. Bot-Left Bedroom
+    (170, 340), # 12. Mid-Left Lounge
+    (170, 230), # 13. West Foyer & Hall
 ]
 ```
 
