@@ -283,8 +283,6 @@ while running:
             start_node = (int(drone.x // GRID_SIZE), int(drone.y // GRID_SIZE))
             goal_node = (int(target[0] // GRID_SIZE), int(target[1] // GRID_SIZE))
             path = astar(binary_map, start_node, goal_node, GRID_SIZE)
-            if len(patrol_queue) == 0:
-                patrol_queue = WAYPOINTS.copy()
 
         # Follow Waypoints Along Path
         target_node_x, target_node_y = None, None
@@ -347,16 +345,18 @@ while running:
                     # Conduct an 800ms room surveillance scan, then advance to next room
                     if pygame.time.get_ticks() - destination_hold_time >= 800:
                         destination_hold_time = 0
-                        if len(patrol_queue) == 0:
-                            patrol_queue = WAYPOINTS.copy()
-                        next_destination = patrol_queue.pop(0)
-                        target = next_destination
-                        min_distance_recorded = float('inf')
-                        ring_radius = 0
-                        ring_alpha = 255
-                        start_node = (int(drone.x // GRID_SIZE), int(drone.y // GRID_SIZE))
-                        goal_node = (int(target[0] // GRID_SIZE), int(target[1] // GRID_SIZE))
-                        path = astar(binary_map, start_node, goal_node, GRID_SIZE)
+                        if len(patrol_queue) > 0:
+                            next_destination = patrol_queue.pop(0)
+                            target = next_destination
+                            min_distance_recorded = float('inf')
+                            ring_radius = 0
+                            ring_alpha = 255
+                            start_node = (int(drone.x // GRID_SIZE), int(drone.y // GRID_SIZE))
+                            goal_node = (int(target[0] // GRID_SIZE), int(target[1] // GRID_SIZE))
+                            path = astar(binary_map, start_node, goal_node, GRID_SIZE)
+                        else:
+                            # Completed patrolling every room in the house once: return to dock & stop
+                            trigger_rth()
                 elif distance_to_home > 12:
                     if pygame.time.get_ticks() - destination_hold_time >= 2000:
                         trigger_rth()
