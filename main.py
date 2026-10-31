@@ -47,37 +47,25 @@ destination_hold_time = 0
 ring_radius = 0
 ring_alpha = 255
 
-# Comprehensive Multi-Room Surveillance Patrol Loop across the Entire House
+# Exact 7-Room Comprehensive Surveillance Circuit (Exactly One Waypoint per Physical Room)
 WAYPOINTS = [
-    (130, 115), # 1. Top-Left Study / Office (Deep Northwest Room)
-    (450, 140), # 2. North Gallery / Atrium (Center North Pavilion)
-    (850, 115), # 3. Top-Right Bedroom 1 (Deep Northeast Suite)
-    (820, 260), # 4. Kitchen & Pantry
-    (820, 365), # 5. East Studio / Bedroom 2
-    (550, 260), # 6. Central Great Hall
-    (380, 260), # 7. Center North Salon
-    (550, 450), # 8. South-Center Dining Hall
-    (480, 560), # 9. South Entrance Portico
-    (170, 580), # 10. South-West Suite / Porch
-    (170, 470), # 11. Bot-Left Bedroom
-    (170, 340), # 12. Mid-Left Lounge
-    (170, 230), # 13. West Foyer & Hall
+    (150, 125), # 1. Top-Left Study (Northwest Wing)
+    (500, 210), # 2. Central Living Room (Upper Center Hall)
+    (830, 125), # 3. Top-Right Bedroom (Northeast Wing)
+    (830, 300), # 4. Kitchen & Dining (East Wing)
+    (500, 460), # 5. Central Dining Hall (Lower Center Hall)
+    (175, 520), # 6. Master Bedroom Suite (Southwest Wing)
+    (175, 300), # 7. Mid-Left Family Lounge (West Central Wing)
 ]
 
 WAYPOINT_NAMES = [
     "Top-Left Study",
-    "North Gallery",
+    "Central Living Room",
     "Top-Right Bedroom",
-    "Kitchen & Pantry",
-    "East Studio",
-    "Central Hall",
-    "North Salon",
-    "South Dining",
-    "South Portico",
-    "South-West Suite",
-    "Bot-Left Bedroom",
+    "Kitchen & Dining",
+    "Central Dining Hall",
+    "Master Bedroom",
     "Mid-Left Lounge",
-    "West Foyer",
 ]
 patrol_queue = []
 patrol_mode = False
